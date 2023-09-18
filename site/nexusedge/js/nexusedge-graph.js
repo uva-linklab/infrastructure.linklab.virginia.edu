@@ -1,0 +1,301 @@
+var nodes = null;
+var edges = null;
+var network = null;
+
+//The nodes are grouped so that they can be expanded or collapsed by double clicking the legend icon.
+//However, the legend icon itself is a node. So it is assigned its own group so that it is not expanded/collapsed
+//along with the other group nodes.
+const gatewayIconShape = 'triangle';
+const gatewayIconColor = '#FF9900'; //orange
+const bleIconShape = 'dot';
+const bleIconColor = "#2B7CE9"; //blue
+const enoceanIconShape = 'dot';
+const enoceanIconColor = "#4C972C"; //green
+const estimoteIconShape = 'image';
+//endpoint for link graph is platform/link-graph-visual. However, the estimote.png is in the root directory. So
+//go one level up for accessing it.
+const estimoteIconImagePath = 'img/estimote.png';
+const estimoteEdgeColor = "#47C3D5"; //turquoise
+
+var groupShapeSettings = {
+    'gateway': {
+        shape: gatewayIconShape,
+        color: gatewayIconColor
+    },
+    'gateway-legend-icon': {
+        shape: gatewayIconShape,
+        color: gatewayIconColor
+    },
+    'ble': {
+        shape: bleIconShape,
+        color: bleIconColor
+    },
+    'ble-legend-icon': {
+        shape: bleIconShape,
+        color: bleIconColor
+    },
+    'enocean': {
+        shape: enoceanIconShape,
+        color: enoceanIconColor
+    },
+    'enocean-legend-icon': {
+        shape: enoceanIconShape,
+        color: enoceanIconColor
+    },
+    'estimote': {
+        shape: estimoteIconShape,
+        image: estimoteIconImagePath,
+    },
+    'estimote-legend-icon': {
+        shape: 'image',
+        image: estimoteIconImagePath,
+    }
+};
+
+function loadLinkGraphData() {
+    //load the link graph data and pass it on to the renderJSONData function
+    d3.json("link-graph-data.json", renderJsonData);
+}
+
+function renderJsonData(jsonData) {
+    draw(parseJsonData(jsonData));
+}
+
+function parseJsonData(linkGraphData) {
+    var nodes = [];
+    var edges = [];
+    var nodeList = [];
+
+    const EDGE_LENGTH = 350,
+        EDGE_WIDTH_SCALE = 2;
+
+    //Add gateways as nodes to the graph
+    var counter = 0;
+    Object.keys(linkGraphData.graph).forEach(nodeId => {
+        nodes.push(
+            {
+                id: counter++,
+                label: nodeId + "\n[" + linkGraphData["data"][nodeId]["ip"] + "]",
+                group: 'gateway',
+                value: 5,
+                font: {size: 16}
+            }
+        );
+        nodeList.push(nodeId);
+    });
+
+    // Add gateway connections as edges to the graph
+    Object.entries(linkGraphData.graph).forEach(entry => {
+        const nodeId = entry[0];
+        const neighbors = entry[1];
+        neighbors.forEach(neighbor => {
+            edges.push(
+                {
+                    from: nodeList.indexOf(nodeId),
+                    to: nodeList.indexOf(neighbor),
+                    length: EDGE_LENGTH,
+                    width: EDGE_WIDTH_SCALE * 2,
+                    color: {color: gatewayIconColor, highlight: gatewayIconColor}
+                }
+            );
+        });
+    });
+
+    // Add devices to the link graph
+    Object.entries(linkGraphData.data).forEach(entry => {
+        const nodeId = entry[0];
+        const data = entry[1];
+        data.devices.forEach(deviceData => {
+            const deviceName = `${deviceData.type}\n(${deviceData.id})`;
+            let deviceType = "";
+
+            // TODO: disabling iBeacons in the link graph to avert crash
+            if (deviceData.type === "iBeacon") {
+                return;
+            } else if (deviceData.type === "estimote") {
+                deviceType = "estimote";
+            } else if (deviceData.controllerId === "enocean-controller") {
+                deviceType = "enocean";
+            } else if (deviceData.controllerId === "ble-controller") {
+                deviceType = "ble";
+            } else {
+                console.log(`unknown device type ${deviceData.device}, ${deviceData.receiver}`);
+                return;
+            }
+
+            //if the device is not already added, add it
+            if (nodeList.indexOf(deviceName) < 0) {
+                nodes.push(
+                    {
+                        id: counter++,
+                        label: deviceName,
+                        group: deviceType,
+                        value: 3,
+                        font: {size: 16}
+                    }
+                );
+                nodeList.push(deviceName);
+            }
+            let edgeColor = "";
+            if (deviceType === "ble")
+                edgeColor = bleIconColor;
+            else if (deviceType === "enocean")
+                edgeColor = enoceanIconColor;
+            else if (deviceType === "estimote")
+                edgeColor = estimoteEdgeColor;
+
+            edges.push(
+                {
+                    from: nodeList.indexOf(nodeId),
+                    to: nodeList.indexOf(deviceName),
+                    length: EDGE_LENGTH,
+                    width: EDGE_WIDTH_SCALE,
+                    color: {color: edgeColor, highlight: edgeColor}
+                }
+            );
+        });
+    });
+    return {"nodes": nodes, "edges": edges};
+}
+
+
+// Called when the Visualization API is loaded.
+function draw(parsedData) {
+    //save the nodes and edges
+    nodes = parsedData.nodes;
+    edges = parsedData.edges;
+
+    //create a legend by spacing y values of the icons
+    var mynetwork = document.getElementById('mynetwork');
+    var x = -mynetwork.clientWidth + 50;
+    var y = -mynetwork.clientHeight + 50;
+    var step = 100;
+    nodes.push({
+        id: 1000,
+        x: x,
+        y: y,
+        label: 'Gateway',
+        group: 'gateway-legend-icon',
+        value: 1,
+        fixed: true,
+        physics: false
+    });
+    nodes.push({
+        id: 1001,
+        x: x,
+        y: y + step,
+        label: 'BLE Sensor',
+        group: 'ble-legend-icon',
+        value: 1,
+        fixed: true,
+        physics: false
+    });
+    nodes.push({
+        id: 1002,
+        x: x,
+        y: y + 2 * step,
+        label: 'Estimote Sensor',
+        group: 'estimote-legend-icon',
+        value: 1,
+        fixed: true,
+        physics: false
+    });
+    nodes.push({
+        id: 1003,
+        x: x,
+        y: y + 3 * step,
+        label: 'Enocean Sensor',
+        group: 'enocean-legend-icon',
+        value: 1,
+        fixed: true,
+        physics: false
+    });
+
+    //create a network
+    var container = document.getElementById('mynetwork');
+    var data = {
+        nodes: nodes,
+        edges: edges
+    };
+    var options = {
+        nodes: {
+            scaling: {
+                min: 20,
+                max: 20
+            }
+        },
+        edges: {
+            smooth: false
+        },
+        physics: {
+            barnesHut: {gravitationalConstant: -30000},
+            stabilization: {iterations: 2500}
+        },
+        groups: groupShapeSettings
+    };
+    network = new vis.Network(container, data, options);
+
+    network.on("doubleClick", function (params) {
+        //get the double-clicked node
+        const nodeId = params.nodes[0];
+        //if it is a cluster, then open it
+        if (network.isCluster(nodeId)) {
+            network.openCluster(nodeId);
+        } else {
+            //check if it belongs to any of the legend labels
+            var group = "";
+            switch (nodeId) {
+                case 1000: //gateway
+                    group = "gateway";
+                    break;
+                case 1001: //ble
+                    group = "ble";
+                    break;
+                case 1002: //estimote
+                    group = "estimote";
+                    break;
+                case 1003: //enocean
+                    group = "enocean";
+                    break;
+                default:
+                    group = "";
+            }
+
+            //if yes, then cluster that group
+            if (group) {
+                //check if the clicked label group is already clustered. if yes, open the cluster, otherwise cluster it.
+                const clusterNodeId = `${group}Cluster`;
+                if (network.isCluster(clusterNodeId)) {
+                    network.openCluster(clusterNodeId);
+                } else {
+                    clusterGroup(group);
+                }
+            }
+        }
+    });
+}
+
+function clusterGroup(groupName) {
+    const clusterShape = groupShapeSettings[groupName]["shape"];
+    const clusterColor = groupShapeSettings[groupName]["color"];
+    const clusterImage = groupShapeSettings[groupName]["image"];
+
+    var clusterOptionsByData = {
+        joinCondition: function (childOptions) {
+            return childOptions.group === groupName;
+        },
+        processProperties: function (clusterOptions, childNodes) {
+            clusterOptions.label = `${childNodes.length}`;
+            clusterOptions.font = {size: 20, color: "#ffffff", vadjust: -45};
+            return clusterOptions;
+        },
+        clusterNodeProperties: {
+            id: `${groupName}Cluster`,
+            borderWidth: 3,
+            shape: clusterShape,
+            image: clusterImage,
+            color: clusterColor
+        }
+    };
+    network.cluster(clusterOptionsByData);
+}
