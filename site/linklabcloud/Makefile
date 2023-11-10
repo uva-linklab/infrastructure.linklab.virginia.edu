@@ -1,2 +1,2 @@
 all:
-	showdown makehtml -i index.md -o index.html
+	showdown makehtml -i index.md -o index.html -c tables
