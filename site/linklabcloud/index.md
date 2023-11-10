@@ -81,9 +81,9 @@ table:
 
 | InfluxDB Measurement Name | Description                                                                |
 |---------------------------|----------------------------------------------------------------------------|
-| altitude_m                | Altitude in meters                                                         |
-| battery_%                 | Battery percentage                                                         |
-| co2_ppm                   | Carbon dioxide (CO2) concentration in parts-per-million                    |
+| altitude_m                | Altitude in meters.                                                        |
+| battery_%                 | Battery percentage.                                                        |
+| co2_ppm                   | Carbon dioxide (CO2) concentration in parts-per-million.                   |
 | Contact                   | Magnet contact sensor or reed switch. 1 means switch is closed, 0 is open. |
 | energy_kWh                | Energy in kilowatt hours.                                                  |
 | frequency_hz              | Frequency in hertz. Often used for AC electricity.                         |
