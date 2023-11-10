@@ -1,0 +1,94 @@
+<h1 id="linklabcloud">Link Lab Cloud</h1>
+<p>The Link Lab cloud is a cloud-hosted streaming data backend that supports dozens
+of sensor deployments and applications that use streaming sensor data.</p>
+<h2 id="underlyingtechnologies">Underlying Technologies</h2>
+<p>The Link Lab Cloud is built on (InfluxDB
+v1](https://docs.influxdata.com/influxdb/v1/), a timeseries database for
+streaming data.</p>
+<p><a href="https://mqtt.org/">MQTT</a> provides connections between data sources and the
+database.</p>
+<p>All metadata are stored in a Postgres database and appended as tags for each
+data item streamed to the Link Lab Cloud.</p>
+<h2 id="dataformat">Data Format</h2>
+<h3 id="datastoredinthedatabase">Data Stored in the Database</h3>
+<p>All datapoints in the LLC are stored in this general format:</p>
+<pre><code>Measurement: &lt;measurement name&gt;
+  value: &lt;measurement value&gt;
+
+Tags:
+  &lt;tag name&gt;: &lt;tag value&gt;
+  ...
+
+Timestamp: &lt;nanosecond timestamp&gt;
+</code></pre>
+<p>This format follows the InfluxDBv1 format, except we use only a single field in
+the measurement, which is always called "value". This makes it easier to query
+for a specific type of data, no matter which sensor type or source it originated
+from (since all temperature data will have the same measurement name and same
+field name).</p>
+<h3 id="datasenttollc">Data Sent to LLC</h3>
+<p>When sending data to the LLC, the data are generally in the following JSON-esque
+format:</p>
+<pre><code>{
+    "&lt;measurement1&gt;": value1,
+    "&lt;measurement2&gt;": value2,
+    ...
+    "_meta": {
+        "device_id": "&lt;unique device id&gt;",
+        "receiver": "&lt;source of the data&gt;",
+        "model_number": "&lt;model #&gt;",
+        ...
+    }
+
+}
+</code></pre>
+<p><code>device_id</code> is required.</p>
+<p><strong>Important!</strong> It is critical that all fields in the <code>_meta</code> object change
+<strong>rarely</strong> for each device_id. The <code>_meta</code> fields should be fixed properties of
+the device (e.g. the model number of the sensor) and NOT a sensor reading (e.g.
+output of a GPS). It is ok to change the <code>_meta</code> fields _occasionally_ (e.g.
+every three months), or on rare occasions (like the device is moved to a new
+location). Any value which is dynamic must be stored in the normal measurement
+key-value pairs.</p>
+<h3 id="standarddatakeys">Standard Data Keys</h3>
+<p>To make it easier to query for data across sensors, we maintain a list of known
+measurement names that sensors should use if possible. They are listed in the
+table:</p>
+<p>| InfluxDB Measurement Name | Description                                                                |
+|---------------------------|----------------------------------------------------------------------------|
+| altitude<em>m                | Altitude in meters                                                         |
+| battery</em>%                 | Battery percentage                                                         |
+| co2<em>ppm                   | Carbon dioxide (CO2) concentration in parts-per-million                    |
+| Contact                   | Magnet contact sensor or reed switch. 1 means switch is closed, 0 is open. |
+| energy</em>kWh                | Energy in kilowatt hours.                                                  |
+| frequency<em>hz              | Frequency in hertz. Often used for AC electricity.                         |
+| Humidity</em>%                | Humidity in percent.                                                       |
+| Illumination<em>lx           | Light illumination in lux.                                                 |
+| PIR Status                | Motion detected by a PIR sensor. 255 means motion, 0 means no motion.      |
+| pm10.0</em>μg/m3              | Concentration of PM10.0 particles in micrograms per cubic meter.           |
+| pm2.5<em>μg/m3               | Concentration of PM2.0 particles in micrograms per cubic meter.            |
+| power</em>w                   | Power in watts.                                                            |
+| pressure<em>hPa              | Pressure in hectoPascals (hPa).                                            |
+| rssi</em>dbm                  | RSSI (received signal strength indicator) in decibel-milliwatts (dBm).     |
+| spl<em>a                     | Sound pressure level averaged.                                             |
+| Temperature</em>°C            | Temperature in degrees Celsius.                                            |
+| voc<em>ppb                   | Volatile organic compounds (VOC) in parts-per-billion.                     |
+| voltage</em>v                 | Voltage in volts.                                                          |</p>
+<p>Of course, this is far from comprehensive. Other datastreams may use other
+measurement names.</p>
+<p>In general, we have found it useful to use the format <code>&lt;data type&gt;_&lt;unit&gt;</code>. This
+balances complexity (it is fairly simple) with readability (queriers can
+generally tell what the data are.)</p>
+<h2 id="metadata">Metadata</h2>
+<p>Metadata for the LLC is stored in a table with the following structure:</p>
+<p>| Column            | Type                   | Description                                                                                                                                                    |
+|-------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| sensorid          | character varying(128) | Same as <code>device_id</code>.                                                                                                                                           |
+| type              | text                   | General name of the sensor type.                                                                                                                               |
+| location<em>general  | text                   | Broad indication of the device's location and deployment scope. This is often a city, state, university, etc.                                                  |
+| location</em>area     | text                   | Device's location at the scope of a physical system or where its data would be used with other devices in the same are. For example, the name of the building. |
+| location_specific | text                   | A location identifier which is reasonably clear where the device is. For example a room number.                                                                |
+| description       | text                   | Additional information about what the device is monitoring or where it is placed.                                                                              |
+| details           | text                   | More information which might be useful. Sometimes a geohash or coordinate.                                                                                     |</p>
+<p>On each matching <code>device_id == sensorid</code>, the other fields are appended as tags
+to the incoming data point.</p>
