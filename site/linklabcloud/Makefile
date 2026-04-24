@@ -1,2 +1,4 @@
+# https://github.com/sgaunet/mdtohtml
+
 all:
-	showdown makehtml -i index.md -o index.html -c tables
+	mdtohtml index.md index.html
